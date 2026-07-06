@@ -1,24 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useLayoutEffect } from "react";
 import { useRegistration } from "@/context/RegistrationContext";
+import { playSuccessSoundOnce } from "@/lib/successSound";
 
 export default function StepSuccess({ playSound = false }: { playSound?: boolean }) {
   const { resetForm } = useRegistration();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!playSound) return;
-
-    const audio = new Audio("/music/sonido-shopify.mp3");
-    audioRef.current = audio;
-    audio.play().catch(() => {});
-
-    return () => {
-      audio.pause();
-      audioRef.current = null;
-    };
+    playSuccessSoundOnce();
   }, [playSound]);
 
   return (

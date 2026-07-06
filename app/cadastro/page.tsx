@@ -9,6 +9,7 @@ import StepSuccess from "@/components/cadastro/StepSuccess";
 import StepVehicle from "@/components/cadastro/StepVehicle";
 import { useRegistration } from "@/context/RegistrationContext";
 import type { Registration } from "@/lib/types";
+import { unlockSuccessSound } from "@/lib/successSound";
 
 async function saveToArchive(
   formData: ReturnType<typeof useRegistration>["formData"],
@@ -95,7 +96,10 @@ export default function CadastroPage() {
 
   const handleVehicleNext = () => saveAndFinish(false);
 
-  const handleVehicleSkip = () => saveAndFinish(true);
+  const handleVehicleSkip = () => {
+    unlockSuccessSound();
+    saveAndFinish(true);
+  };
 
   const renderStep = () => {
     if (step === 1) {
