@@ -18,6 +18,7 @@ export default function AdminPage() {
   const [newIds, setNewIds] = useState<Set<string>>(() => new Set());
   const knownIdsRef = useRef<Set<string>>(new Set());
   const isInitialLoadRef = useRef(true);
+  const pendingDeletesRef = useRef<Set<string>>(new Set());
 
   const checkSession = useCallback(async () => {
     try {
@@ -52,7 +53,7 @@ export default function AdminPage() {
         if (!silent) setRegistrations([]);
         return;
       }
-      const newData = data;
+      const newData = data.filter((r) => !pendingDeletesRef.current.has(r.id));
 
       if (!isInitialLoadRef.current) {
         const added = newData.filter((r) => !knownIdsRef.current.has(r.id));
@@ -119,24 +120,32 @@ export default function AdminPage() {
     setSelected(null);
     setNewIds(new Set());
     knownIdsRef.current = new Set();
+    pendingDeletesRef.current = new Set();
     isInitialLoadRef.current = true;
   };
 
   const handleDelete = async (id: string) => {
+    pendingDeletesRef.current.add(id);
+
+    setRegistrations((prev) => prev.filter((r) => r.id !== id));
+    setSelected((current) => (current?.id === id ? null : current));
+    knownIdsRef.current.delete(id);
+    setNewIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+
     try {
       const res = await fetch(`/api/registrations/${id}`, { method: "DELETE" });
-      if (!res.ok) return;
-
-      setRegistrations((prev) => prev.filter((r) => r.id !== id));
-      setSelected((current) => (current?.id === id ? null : current));
-      knownIdsRef.current.delete(id);
-      setNewIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+      if (!res.ok) {
+        pendingDeletesRef.current.delete(id);
+        void loadData(true);
+        return;
+      }
     } catch {
-      // keep list unchanged on failure
+      pendingDeletesRef.current.delete(id);
+      void loadData(true);
     }
   };
 
