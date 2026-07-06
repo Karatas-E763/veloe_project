@@ -1,30 +1,88 @@
 import { get, put } from "@vercel/blob";
+import { promises as fs } from "fs";
+import path from "path";
 import type { Registration } from "./types";
 
 const BLOB_PATH = "registrations.json";
 const BLOB_ACCESS = "private" as const;
+const LOCAL_DATA_FILE = path.join(process.cwd(), "data", "registrations.json");
 
-async function readRegistrations(): Promise<Registration[]> {
+function shouldUseBlobStorage(): boolean {
+  return Boolean(
+    process.env.VERCEL ||
+      process.env.BLOB_READ_WRITE_TOKEN ||
+      process.env.VERCEL_OIDC_TOKEN
+  );
+}
+
+async function ensureLocalDataFile(): Promise<void> {
+  await fs.mkdir(path.dirname(LOCAL_DATA_FILE), { recursive: true });
   try {
-    const result = await get(BLOB_PATH, { access: BLOB_ACCESS });
-    if (!result?.stream) return [];
-
-    const raw = await new Response(result.stream).text();
-    if (!raw.trim()) return [];
-
-    return JSON.parse(raw) as Registration[];
+    await fs.access(LOCAL_DATA_FILE);
   } catch {
-    return [];
+    await fs.writeFile(LOCAL_DATA_FILE, "[]", "utf-8");
   }
 }
 
-async function writeRegistrations(registrations: Registration[]): Promise<void> {
+async function readFromBlob(): Promise<Registration[]> {
+  const result = await get(BLOB_PATH, { access: BLOB_ACCESS });
+  if (!result?.stream) return [];
+
+  const raw = await new Response(result.stream).text();
+  if (!raw.trim()) return [];
+
+  const parsed = JSON.parse(raw) as unknown;
+  return Array.isArray(parsed) ? (parsed as Registration[]) : [];
+}
+
+async function readFromLocal(): Promise<Registration[]> {
+  await ensureLocalDataFile();
+  const raw = await fs.readFile(LOCAL_DATA_FILE, "utf-8");
+  if (!raw.trim()) return [];
+
+  const parsed = JSON.parse(raw) as unknown;
+  return Array.isArray(parsed) ? (parsed as Registration[]) : [];
+}
+
+async function writeToBlob(registrations: Registration[]): Promise<void> {
   await put(BLOB_PATH, JSON.stringify(registrations, null, 2), {
     access: BLOB_ACCESS,
     contentType: "application/json",
     addRandomSuffix: false,
     allowOverwrite: true,
   });
+}
+
+async function writeToLocal(registrations: Registration[]): Promise<void> {
+  await ensureLocalDataFile();
+  await fs.writeFile(
+    LOCAL_DATA_FILE,
+    JSON.stringify(registrations, null, 2),
+    "utf-8"
+  );
+}
+
+async function readRegistrations(): Promise<Registration[]> {
+  if (shouldUseBlobStorage()) {
+    try {
+      return await readFromBlob();
+    } catch {
+      if (!process.env.VERCEL) {
+        return readFromLocal();
+      }
+    }
+  }
+
+  return readFromLocal();
+}
+
+async function writeRegistrations(registrations: Registration[]): Promise<void> {
+  if (shouldUseBlobStorage()) {
+    await writeToBlob(registrations);
+    return;
+  }
+
+  await writeToLocal(registrations);
 }
 
 export async function getRegistrations(): Promise<Registration[]> {

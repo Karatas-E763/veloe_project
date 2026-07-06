@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import { getRegistrations, saveRegistration } from "@/lib/storage";
 import type { Registration } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function GET() {
   try {
     const registrations = await getRegistrations();
     return NextResponse.json(registrations);
-  } catch {
+  } catch (error) {
+    console.error("GET /api/registrations failed:", error);
     return NextResponse.json(
       { error: "Failed to load registrations" },
       { status: 500 }
@@ -39,7 +43,8 @@ export async function POST(request: Request) {
 
     const saved = await saveRegistration(registration);
     return NextResponse.json(saved, { status: 201 });
-  } catch {
+  } catch (error) {
+    console.error("POST /api/registrations failed:", error);
     return NextResponse.json(
       { error: "Failed to save registration" },
       { status: 500 }

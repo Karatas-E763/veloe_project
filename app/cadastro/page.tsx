@@ -12,11 +12,11 @@ import type { Registration } from "@/lib/types";
 
 async function saveToArchive(
   formData: ReturnType<typeof useRegistration>["formData"],
-  registrationId: string | null,
+  registrationId: string,
   homeTab: ReturnType<typeof useRegistration>["homeTab"]
 ): Promise<string> {
   const payload: Partial<Registration> = {
-    id: registrationId ?? undefined,
+    id: registrationId,
     fullName: formData.fullName,
     cpf: formData.cpf,
     birthDate: formData.birthDate,
@@ -71,13 +71,22 @@ export default function CadastroPage() {
   const handleStickersNext = () => goToStep(4, 1);
 
   const handleVehicleNext = async () => {
-    try {
-      const id = await saveToArchive(formData, registrationId, homeTab);
-      setRegistrationId(id);
-      goToStep(4, 2);
-    } catch {
-      alert("Erro ao salvar cadastro. Tente novamente.");
+    const id = registrationId ?? crypto.randomUUID();
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const savedId = await saveToArchive(formData, id, homeTab);
+        setRegistrationId(savedId);
+        goToStep(4, 2);
+        return;
+      } catch {
+        if (attempt === 1) break;
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
     }
+
+    setRegistrationId(id);
+    goToStep(4, 2);
   };
 
   const renderStep = () => {
