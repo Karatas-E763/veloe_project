@@ -1,8 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { Registration } from "@/lib/types";
 import AdminLogin from "@/components/admin/AdminLogin";
+import {
+  playNotificationSound,
+  unlockSuccessSound,
+  warmSuccessSound,
+} from "@/lib/successSound";
+
+const POLL_INTERVAL_MS = 4000;
 
 export default function AdminPage() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
@@ -10,6 +17,10 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Registration | null>(null);
   const [search, setSearch] = useState("");
+  const [newSubscriberIds, setNewSubscriberIds] = useState<Set<string>>(
+    () => new Set()
+  );
+  const knownIdsRef = useRef<Set<string> | null>(null);
 
   const checkSession = useCallback(async () => {
     try {
@@ -21,27 +32,67 @@ export default function AdminPage() {
     }
   }, []);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const fetchRegistrations = useCallback(async (): Promise<
+    Registration[] | null
+  > => {
     try {
       const res = await fetch("/api/registrations", { cache: "no-store" });
       if (res.status === 401) {
         setAuthenticated(false);
         setRegistrations([]);
-        return;
+        return null;
       }
-      if (!res.ok) {
-        setRegistrations([]);
-        return;
-      }
+      if (!res.ok) return null;
+
       const data = (await res.json()) as Registration[] | { error?: string };
-      setRegistrations(Array.isArray(data) ? data : []);
+      return Array.isArray(data) ? data : [];
     } catch {
-      setRegistrations([]);
+      return null;
+    }
+  }, []);
+
+  const applyRegistrations = useCallback(
+    (data: Registration[], isInitial: boolean) => {
+      if (isInitial || knownIdsRef.current === null) {
+        knownIdsRef.current = new Set(data.map((r) => r.id));
+        setRegistrations(data);
+        return;
+      }
+
+      const freshIds: string[] = [];
+      const known = knownIdsRef.current;
+
+      for (const registration of data) {
+        if (!known.has(registration.id)) {
+          freshIds.push(registration.id);
+          known.add(registration.id);
+        }
+      }
+
+      setRegistrations(data);
+
+      if (freshIds.length > 0) {
+        setNewSubscriberIds((prev) => {
+          const next = new Set(prev);
+          freshIds.forEach((id) => next.add(id));
+          return next;
+        });
+        playNotificationSound();
+      }
+    },
+    []
+  );
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await fetchRegistrations();
+      if (data === null) return;
+      applyRegistrations(data, true);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyRegistrations, fetchRegistrations]);
 
   useEffect(() => {
     checkSession();
@@ -53,7 +104,34 @@ export default function AdminPage() {
     }
   }, [authenticated, loadData]);
 
+  useEffect(() => {
+    if (!authenticated) return;
+
+    warmSuccessSound();
+    unlockSuccessSound();
+
+    const unlock = () => {
+      unlockSuccessSound();
+      window.removeEventListener("pointerdown", unlock);
+    };
+    window.addEventListener("pointerdown", unlock, { once: true });
+
+    const poll = async () => {
+      const data = await fetchRegistrations();
+      if (data !== null) {
+        applyRegistrations(data, false);
+      }
+    };
+
+    const intervalId = window.setInterval(poll, POLL_INTERVAL_MS);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("pointerdown", unlock);
+    };
+  }, [authenticated, applyRegistrations, fetchRegistrations]);
+
   const handleLoginSuccess = () => {
+    unlockSuccessSound();
     setAuthenticated(true);
   };
 
@@ -62,6 +140,18 @@ export default function AdminPage() {
     setAuthenticated(false);
     setRegistrations([]);
     setSelected(null);
+    setNewSubscriberIds(new Set());
+    knownIdsRef.current = null;
+  };
+
+  const handleView = (registration: Registration) => {
+    setSelected(registration);
+    setNewSubscriberIds((prev) => {
+      if (!prev.has(registration.id)) return prev;
+      const next = new Set(prev);
+      next.delete(registration.id);
+      return next;
+    });
   };
 
   const handleDelete = async (id: string) => {
@@ -71,6 +161,12 @@ export default function AdminPage() {
 
       setRegistrations((prev) => prev.filter((r) => r.id !== id));
       setSelected((current) => (current?.id === id ? null : current));
+      setNewSubscriberIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     } catch {
       // keep list unchanged on failure
     }
@@ -189,10 +285,32 @@ export default function AdminPage() {
                   {filtered.map((r) => (
                     <tr
                       key={r.id}
-                      className="border-b border-gray-50 transition-colors hover:bg-veloe-cyan/5"
+                      className={`border-b border-gray-50 transition-colors hover:bg-veloe-cyan/5 ${
+                        newSubscriberIds.has(r.id) ? "bg-green-50/60" : ""
+                      }`}
                     >
                       <td className="px-4 py-3 font-medium text-veloe-navy">
-                        {r.fullName}
+                        <span className="flex items-center gap-2">
+                          {newSubscriberIds.has(r.id) && (
+                            <span
+                              className="relative flex h-5 w-5 shrink-0 items-center justify-center"
+                              title="Novo cadastro"
+                            >
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                              <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-green-500 text-white">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                                  <path
+                                    d="M12 3a6 6 0 00-6 6v2.1l-1.4 1.4a1 1 0 00-.3.7V18a2 2 0 002 2h11a2 2 0 002-2v-4.8a1 1 0 00-.3-.7L18 11.1V9a6 6 0 00-6-6z"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              </span>
+                            </span>
+                          )}
+                          {r.fullName}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-veloe-navy/70">{r.cpf}</td>
                       <td className="px-4 py-3 text-veloe-navy/70">{r.email}</td>
@@ -216,7 +334,7 @@ export default function AdminPage() {
                       <td className="px-4 py-3">
                         <button
                           type="button"
-                          onClick={() => setSelected(r)}
+                          onClick={() => handleView(r)}
                           className="mr-2 rounded-lg bg-veloe-navy/10 px-3 py-1.5 text-xs font-semibold text-veloe-navy transition-colors hover:bg-veloe-navy/20"
                         >
                           Ver

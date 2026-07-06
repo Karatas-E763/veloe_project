@@ -1,17 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useLayoutEffect } from "react";
 import { useRegistration } from "@/context/RegistrationContext";
-import { playSuccessSoundOnce } from "@/lib/successSound";
 
-export default function StepSuccess({ playSound = false }: { playSound?: boolean }) {
+export default function StepSuccess() {
   const { resetForm } = useRegistration();
-
-  useLayoutEffect(() => {
-    if (!playSound) return;
-    playSuccessSoundOnce();
-  }, [playSound]);
 
   return (
     <div className="animate-fade-in text-center">

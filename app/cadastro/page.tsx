@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { flushSync } from "react-dom";
 import RegistrationLayout from "@/components/cadastro/RegistrationLayout";
 import StepDelivery from "@/components/cadastro/StepDelivery";
@@ -10,7 +10,6 @@ import StepSuccess from "@/components/cadastro/StepSuccess";
 import StepVehicle from "@/components/cadastro/StepVehicle";
 import { useRegistration } from "@/context/RegistrationContext";
 import type { Registration } from "@/lib/types";
-import { unlockSuccessSound, warmSuccessSound } from "@/lib/successSound";
 
 async function saveToArchive(
   formData: ReturnType<typeof useRegistration>["formData"],
@@ -58,17 +57,6 @@ export default function CadastroPage() {
     homeTab,
   } = useRegistration();
 
-  const [playSuccessSound, setPlaySuccessSound] = useState(false);
-
-  useEffect(() => {
-    const warm = () => {
-      warmSuccessSound();
-      window.removeEventListener("pointerdown", warm);
-    };
-    window.addEventListener("pointerdown", warm, { once: true });
-    return () => window.removeEventListener("pointerdown", warm);
-  }, []);
-
   const goToStep = useCallback(
     (nextStep: number, nextSubStep = 1) => {
       setStep(nextStep);
@@ -84,7 +72,7 @@ export default function CadastroPage() {
 
   const handleStickersNext = () => goToStep(4, 1);
 
-  const saveAndFinish = async (withSound: boolean) => {
+  const saveAndFinish = async () => {
     const id = registrationId ?? crypto.randomUUID();
 
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -92,7 +80,6 @@ export default function CadastroPage() {
         const savedId = await saveToArchive(formData, id, homeTab);
         flushSync(() => {
           setRegistrationId(savedId);
-          setPlaySuccessSound(withSound);
           setStep(4);
           setSubStep(2);
         });
@@ -108,10 +95,7 @@ export default function CadastroPage() {
     alert("Erro ao salvar cadastro. Verifique se o Blob store está conectado no Vercel.");
   };
 
-  const handleVehicleNext = () => {
-    unlockSuccessSound();
-    saveAndFinish(true);
-  };
+  const handleVehicleNext = () => saveAndFinish();
 
   const renderStep = () => {
     if (step === 1) {
@@ -127,7 +111,7 @@ export default function CadastroPage() {
       return <StepVehicle onNext={handleVehicleNext} />;
     }
     if (step === 4 && subStep === 2) {
-      return <StepSuccess playSound={playSuccessSound} />;
+      return <StepSuccess />;
     }
     return <StepPersonalData onNext={handlePersonalDataNext} />;
   };
