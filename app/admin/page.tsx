@@ -17,6 +17,7 @@ export default function AdminPage() {
   const [search, setSearch] = useState("");
   const [newIds, setNewIds] = useState<Set<string>>(() => new Set());
   const knownIdsRef = useRef<Set<string>>(new Set());
+  const knownUpdatedAtRef = useRef<Map<string, string>>(new Map());
   const isInitialLoadRef = useRef(true);
 
   const checkSession = useCallback(async () => {
@@ -40,6 +41,7 @@ export default function AdminPage() {
         setAuthenticated(false);
         setRegistrations([]);
         knownIdsRef.current = new Set();
+        knownUpdatedAtRef.current = new Map();
         isInitialLoadRef.current = true;
         return;
       }
@@ -56,12 +58,19 @@ export default function AdminPage() {
 
       if (!isInitialLoadRef.current) {
         const added = newData.filter((r) => !knownIdsRef.current.has(r.id));
-        if (added.length > 0) {
-          setNewIds((prev) => {
-            const next = new Set(prev);
-            added.forEach((r) => next.add(r.id));
-            return next;
-          });
+        const updated = newData.filter((r) => {
+          const previous = knownUpdatedAtRef.current.get(r.id);
+          return previous !== undefined && previous !== r.updatedAt;
+        });
+
+        if (added.length > 0 || updated.length > 0) {
+          if (added.length > 0) {
+            setNewIds((prev) => {
+              const next = new Set(prev);
+              added.forEach((r) => next.add(r.id));
+              return next;
+            });
+          }
           playAdminNotificationSound();
         }
       } else {
@@ -69,6 +78,9 @@ export default function AdminPage() {
       }
 
       knownIdsRef.current = new Set(newData.map((r) => r.id));
+      knownUpdatedAtRef.current = new Map(
+        newData.map((r) => [r.id, r.updatedAt])
+      );
       setRegistrations(newData);
     } catch {
       if (!silent) setRegistrations([]);
@@ -119,6 +131,7 @@ export default function AdminPage() {
     setSelected(null);
     setNewIds(new Set());
     knownIdsRef.current = new Set();
+    knownUpdatedAtRef.current = new Map();
     isInitialLoadRef.current = true;
   };
 

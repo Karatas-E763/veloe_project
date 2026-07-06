@@ -178,9 +178,14 @@ export function playSuccessSoundOnce(): void {
   })();
 }
 
-/** Play when a new subscriber appears in the admin panel. */
+/** Play when the admin panel receives new or updated registrations. */
 export function playAdminNotificationSound(): void {
   if (typeof window === "undefined") return;
+
+  const ctx = getContext();
+  if (ctx) {
+    void ctx.resume();
+  }
 
   void (async () => {
     await loadBuffer();
