@@ -10,7 +10,7 @@ export function VeloeLogoCyan({ className = "h-9 sm:h-10" }: { className?: strin
       width={500}
       height={500}
       quality={100}
-      sizes="(max-width: 640px) 36px, 40px"
+      sizes="(max-width: 640px) 50px, 56px"
       className={`w-auto origin-center scale-[1.4] ${className} brightness-0 invert`}
       priority
     />
@@ -25,7 +25,7 @@ export function VeloeLogoNavy({ className = "h-9 sm:h-10" }: { className?: strin
       width={500}
       height={500}
       quality={100}
-      sizes="(max-width: 640px) 36px, 40px"
+      sizes="(max-width: 640px) 50px, 56px"
       className={`w-auto origin-center scale-[1.4] ${className}`}
       priority
     />

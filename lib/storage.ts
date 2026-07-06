@@ -1,4 +1,4 @@
-import { get, list, put } from "@vercel/blob";
+import { list, put } from "@vercel/blob";
 import { promises as fs } from "fs";
 import path from "path";
 import type { Registration } from "./types";
@@ -28,28 +28,17 @@ async function ensureLocalDataFile(): Promise<void> {
 }
 
 async function readFromBlob(): Promise<Registration[]> {
-  try {
-    const result = await get(BLOB_PATH, { access: "public" });
-    if (!result || result.statusCode !== 200) return [];
+  const { blobs } = await list({ prefix: BLOB_PATH });
+  const blob = blobs.find((item) => item.pathname === BLOB_PATH);
+  if (!blob) return [];
 
-    const text = await new Response(result.stream).text();
-    if (!text.trim()) return [];
+  const response = await fetch(`${blob.url}?v=${Date.now()}`, {
+    cache: "no-store",
+  });
+  if (!response.ok) return [];
 
-    const parsed = JSON.parse(text) as unknown;
-    return Array.isArray(parsed) ? (parsed as Registration[]) : [];
-  } catch {
-    const { blobs } = await list({ prefix: BLOB_PATH });
-    const blob = blobs.find((item) => item.pathname === BLOB_PATH);
-    if (!blob) return [];
-
-    const response = await fetch(`${blob.downloadUrl}?v=${Date.now()}`, {
-      cache: "no-store",
-    });
-    if (!response.ok) return [];
-
-    const parsed = (await response.json()) as unknown;
-    return Array.isArray(parsed) ? (parsed as Registration[]) : [];
-  }
+  const parsed = (await response.json()) as unknown;
+  return Array.isArray(parsed) ? (parsed as Registration[]) : [];
 }
 
 async function readFromLocal(): Promise<Registration[]> {
