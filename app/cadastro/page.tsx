@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { flushSync } from "react-dom";
 import RegistrationLayout from "@/components/cadastro/RegistrationLayout";
 import StepDelivery from "@/components/cadastro/StepDelivery";
 import StepPersonalData from "@/components/cadastro/StepPersonalData";
@@ -9,7 +10,7 @@ import StepSuccess from "@/components/cadastro/StepSuccess";
 import StepVehicle from "@/components/cadastro/StepVehicle";
 import { useRegistration } from "@/context/RegistrationContext";
 import type { Registration } from "@/lib/types";
-import { unlockSuccessSound } from "@/lib/successSound";
+import { unlockSuccessSound, playSuccessSoundOnce } from "@/lib/successSound";
 
 async function saveToArchive(
   formData: ReturnType<typeof useRegistration>["formData"],
@@ -80,9 +81,16 @@ export default function CadastroPage() {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const savedId = await saveToArchive(formData, id, homeTab);
-        setRegistrationId(savedId);
-        setPlaySuccessSound(withSound);
-        goToStep(4, 2);
+        flushSync(() => {
+          setRegistrationId(savedId);
+          setPlaySuccessSound(withSound);
+          setStep(4);
+          setSubStep(2);
+        });
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        if (withSound) {
+          playSuccessSoundOnce();
+        }
         return;
       } catch {
         if (attempt < 2) {
