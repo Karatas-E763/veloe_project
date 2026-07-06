@@ -1,10 +1,9 @@
-import { get, list, put } from "@vercel/blob";
+import { list, put } from "@vercel/blob";
 import { promises as fs } from "fs";
 import path from "path";
 import type { Registration } from "./types";
 
 const BLOB_PATH = "registrations.json";
-const BLOB_ACCESS = "private" as const;
 const LOCAL_DATA_FILE = path.join(process.cwd(), "data", "registrations.json");
 
 function isVercelEnv(): boolean {
@@ -19,20 +18,6 @@ function shouldUseBlobStorage(): boolean {
   );
 }
 
-function getBlobAuthOptions() {
-  const options: { token?: string; storeId?: string } = {};
-
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    options.token = process.env.BLOB_READ_WRITE_TOKEN;
-  }
-
-  if (process.env.BLOB_STORE_ID) {
-    options.storeId = process.env.BLOB_STORE_ID;
-  }
-
-  return options;
-}
-
 async function ensureLocalDataFile(): Promise<void> {
   await fs.mkdir(path.dirname(LOCAL_DATA_FILE), { recursive: true });
   try {
@@ -42,28 +27,15 @@ async function ensureLocalDataFile(): Promise<void> {
   }
 }
 
-async function resolveBlobUrl(): Promise<string | null> {
-  const auth = getBlobAuthOptions();
-  const { blobs } = await list({ prefix: BLOB_PATH, ...auth });
-  return blobs.find((blob) => blob.pathname === BLOB_PATH)?.url ?? null;
-}
-
 async function readFromBlob(): Promise<Registration[]> {
-  const auth = getBlobAuthOptions();
-  const blobUrl = await resolveBlobUrl();
+  const { blobs } = await list({ prefix: BLOB_PATH });
+  const blob = blobs.find((item) => item.pathname === BLOB_PATH);
+  if (!blob) return [];
 
-  const result = blobUrl
-    ? await get(blobUrl, { access: BLOB_ACCESS, ...auth })
-    : await get(BLOB_PATH, { access: BLOB_ACCESS, ...auth });
+  const response = await fetch(blob.url, { cache: "no-store" });
+  if (!response.ok) return [];
 
-  if (!result || result.statusCode !== 200 || !result.stream) {
-    return [];
-  }
-
-  const raw = await new Response(result.stream).text();
-  if (!raw.trim()) return [];
-
-  const parsed = JSON.parse(raw) as unknown;
+  const parsed = (await response.json()) as unknown;
   return Array.isArray(parsed) ? (parsed as Registration[]) : [];
 }
 
@@ -77,14 +49,11 @@ async function readFromLocal(): Promise<Registration[]> {
 }
 
 async function writeToBlob(registrations: Registration[]): Promise<void> {
-  const auth = getBlobAuthOptions();
-
   await put(BLOB_PATH, JSON.stringify(registrations, null, 2), {
-    access: BLOB_ACCESS,
+    access: "public",
     contentType: "application/json",
     addRandomSuffix: false,
     allowOverwrite: true,
-    ...auth,
   });
 }
 
@@ -101,7 +70,6 @@ async function readRegistrations(): Promise<Registration[]> {
   if (shouldUseBlobStorage()) {
     return readFromBlob();
   }
-
   return readFromLocal();
 }
 
@@ -110,7 +78,6 @@ async function writeRegistrations(registrations: Registration[]): Promise<void> 
     await writeToBlob(registrations);
     return;
   }
-
   await writeToLocal(registrations);
 }
 

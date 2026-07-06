@@ -73,20 +73,20 @@ export default function CadastroPage() {
   const handleVehicleNext = async () => {
     const id = registrationId ?? crypto.randomUUID();
 
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const savedId = await saveToArchive(formData, id, homeTab);
         setRegistrationId(savedId);
         goToStep(4, 2);
         return;
       } catch {
-        if (attempt === 1) break;
-        await new Promise((resolve) => setTimeout(resolve, 400));
+        if (attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
       }
     }
 
-    setRegistrationId(id);
-    goToStep(4, 2);
+    alert("Erro ao salvar cadastro. Verifique se o Blob store está conectado no Vercel.");
   };
 
   const renderStep = () => {

@@ -8,7 +8,9 @@ export const runtime = "nodejs";
 export async function GET() {
   try {
     const registrations = await getRegistrations();
-    return NextResponse.json(registrations);
+    return NextResponse.json(registrations, {
+      headers: { "Cache-Control": "no-store, max-age=0" },
+    });
   } catch (error) {
     console.error("GET /api/registrations failed:", error);
     return NextResponse.json(

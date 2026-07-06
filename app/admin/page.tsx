@@ -12,9 +12,13 @@ export default function AdminPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/registrations");
-      const data = (await res.json()) as Registration[];
-      setRegistrations(data);
+      const res = await fetch("/api/registrations", { cache: "no-store" });
+      if (!res.ok) {
+        setRegistrations([]);
+        return;
+      }
+      const data = (await res.json()) as Registration[] | { error?: string };
+      setRegistrations(Array.isArray(data) ? data : []);
     } catch {
       setRegistrations([]);
     } finally {
