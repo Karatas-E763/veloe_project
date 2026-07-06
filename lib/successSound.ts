@@ -1,69 +1,77 @@
-const SOUND_SRC = "/music/sonido-shopify.mp3";
+const SOUND_PATH = "/music/sonido-shopify.mp3";
 
-let htmlAudio: HTMLAudioElement | null = null;
+type AudioContextCtor = typeof AudioContext;
+
 let audioContext: AudioContext | null = null;
 let audioBuffer: AudioBuffer | null = null;
-let preloadPromise: Promise<void> | null = null;
-let gestureUnlocked = false;
+let bufferPromise: Promise<AudioBuffer | null> | null = null;
+let domAudio: HTMLAudioElement | null = null;
+let armed = false;
+let unlockSession = 0;
+let playedSession = -1;
 
-function getHtmlAudio(): HTMLAudioElement {
-  if (!htmlAudio) {
-    htmlAudio = new Audio(SOUND_SRC);
-    htmlAudio.preload = "auto";
-  }
-  return htmlAudio;
+function resolveSoundUrl(): string {
+  if (typeof window === "undefined") return SOUND_PATH;
+  return new URL(SOUND_PATH, window.location.origin).href;
 }
 
-function getAudioContext(): AudioContext {
-  if (!audioContext) {
-    audioContext = new AudioContext();
-  }
+function getAudioContextCtor(): AudioContextCtor | null {
+  if (typeof window === "undefined") return null;
+  return (
+    window.AudioContext ||
+    (window as Window & { webkitAudioContext?: AudioContextCtor })
+      .webkitAudioContext ||
+    null
+  );
+}
+
+function getContext(): AudioContext | null {
+  if (audioContext) return audioContext;
+  const Ctor = getAudioContextCtor();
+  if (!Ctor) return null;
+  audioContext = new Ctor();
   return audioContext;
 }
 
-function preloadSound(): Promise<void> {
-  if (preloadPromise) return preloadPromise;
-
-  preloadPromise = (async () => {
-    if (typeof window === "undefined") return;
-
-    const el = getHtmlAudio();
-    el.load();
-
-    try {
-      const response = await fetch(SOUND_SRC, { cache: "force-cache" });
-      if (!response.ok) return;
-
-      const data = await response.arrayBuffer();
-      const ctx = getAudioContext();
-      audioBuffer = await ctx.decodeAudioData(data.slice(0));
-    } catch {
-      // HTML audio fallback remains available.
-    }
-  })();
-
-  return preloadPromise;
+function getDomAudio(): HTMLAudioElement {
+  if (!domAudio && typeof document !== "undefined") {
+    domAudio = document.createElement("audio");
+    domAudio.src = resolveSoundUrl();
+    domAudio.preload = "auto";
+    domAudio.setAttribute("playsinline", "true");
+    domAudio.style.cssText =
+      "position:fixed;width:0;height:0;opacity:0;pointer-events:none";
+    document.body.appendChild(domAudio);
+  }
+  return domAudio as HTMLAudioElement;
 }
 
-function stopMutedKeepAlive(): void {
-  if (!htmlAudio) return;
-  htmlAudio.loop = false;
-  htmlAudio.pause();
-  htmlAudio.muted = false;
-  htmlAudio.currentTime = 0;
+function loadBuffer(): Promise<AudioBuffer | null> {
+  if (audioBuffer) return Promise.resolve(audioBuffer);
+  if (!bufferPromise) {
+    bufferPromise = (async () => {
+      try {
+        const response = await fetch(resolveSoundUrl(), { cache: "default" });
+        if (!response.ok) return null;
+
+        const data = await response.arrayBuffer();
+        const ctx = getContext();
+        if (!ctx) return null;
+
+        const buffer = await ctx.decodeAudioData(data.slice(0));
+        audioBuffer = buffer;
+        return buffer;
+      } catch {
+        return null;
+      }
+    })();
+  }
+  return bufferPromise;
 }
 
-/** Call synchronously from a click handler so playback is allowed later. */
-export function unlockSuccessSound(): void {
-  if (typeof window === "undefined") return;
-
-  gestureUnlocked = true;
-
-  const ctx = getAudioContext();
-  void ctx.resume();
-  void preloadSound();
-
-  const el = getHtmlAudio();
+function startMutedKeepAlive(): void {
+  const el = getDomAudio();
+  el.src = resolveSoundUrl();
   el.muted = true;
   el.loop = true;
   el.volume = 1;
@@ -71,24 +79,57 @@ export function unlockSuccessSound(): void {
   void el.play().catch(() => {});
 }
 
-async function playWithWebAudio(): Promise<boolean> {
-  if (!gestureUnlocked || !audioBuffer) return false;
-
-  const ctx = getAudioContext();
-  if (ctx.state === "suspended") {
-    await ctx.resume();
-  }
-
-  const source = ctx.createBufferSource();
-  source.buffer = audioBuffer;
-  source.connect(ctx.destination);
-  source.start(0);
-  stopMutedKeepAlive();
-  return true;
+function stopMutedKeepAlive(): void {
+  if (!domAudio) return;
+  domAudio.loop = false;
+  domAudio.pause();
+  domAudio.muted = false;
+  domAudio.currentTime = 0;
 }
 
-async function playWithHtmlAudio(): Promise<boolean> {
-  const el = getHtmlAudio();
+/** Call synchronously from a click handler so playback is allowed later. */
+export function unlockSuccessSound(): void {
+  if (typeof window === "undefined") return;
+
+  armed = true;
+  unlockSession += 1;
+
+  const ctx = getContext();
+  if (ctx) {
+    void ctx.resume();
+  }
+
+  void loadBuffer();
+  startMutedKeepAlive();
+}
+
+async function tryWebAudioPlay(): Promise<boolean> {
+  const buffer = await loadBuffer();
+  const ctx = getContext();
+  if (!buffer || !ctx) return false;
+
+  if (ctx.state === "suspended") {
+    try {
+      await ctx.resume();
+    } catch {
+      return false;
+    }
+  }
+
+  try {
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    source.start(0);
+    stopMutedKeepAlive();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function tryDomAudioPlay(): Promise<boolean> {
+  const el = getDomAudio();
   el.loop = false;
   el.pause();
   el.muted = false;
@@ -109,20 +150,36 @@ async function playWithHtmlAudio(): Promise<boolean> {
   }
 }
 
-/** Play once when the success screen mounts. */
+async function attemptPlay(): Promise<boolean> {
+  if (!armed) return false;
+  if (await tryWebAudioPlay()) return true;
+  return tryDomAudioPlay();
+}
+
+/** Play once when the success screen mounts. Retries handle async save delays. */
 export function playSuccessSoundOnce(): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || !armed) return;
+  if (playedSession === unlockSession) return;
+
+  const session = unlockSession;
 
   void (async () => {
-    await preloadSound();
+    for (let attempt = 0; attempt < 12; attempt++) {
+      if (session !== unlockSession || !armed) return;
 
-    if (await playWithWebAudio()) return;
-    await playWithHtmlAudio();
+      if (await attemptPlay()) {
+        playedSession = session;
+        armed = false;
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
   })();
 }
 
 /** Warm cache on first user interaction anywhere in the flow. */
 export function warmSuccessSound(): void {
   if (typeof window === "undefined") return;
-  void preloadSound();
+  void loadBuffer();
 }
