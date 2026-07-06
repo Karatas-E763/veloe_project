@@ -6,7 +6,6 @@ import {
   formatCPF,
   formatPhone,
   isPersonalDataFilled,
-  validateBirthDate,
   validateCPF,
   validateEmail,
   validateFullName,
@@ -55,237 +54,6 @@ function FormField({
   );
 }
 
-function formatBirthDateDisplay(iso: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
-  const [year, month, day] = iso.split("-");
-  return `${day}/${month}/${year}`;
-}
-
-function toBirthDateIso(year: number, month: number, day: number): string {
-  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
-
-const WEEKDAYS = ["D", "S", "T", "Q", "Q", "S", "S"];
-const MONTHS = [
-  "janeiro",
-  "fevereiro",
-  "março",
-  "abril",
-  "maio",
-  "junho",
-  "julho",
-  "agosto",
-  "setembro",
-  "outubro",
-  "novembro",
-  "dezembro",
-];
-
-function BirthDateField({
-  value,
-  onChange,
-  error,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  error?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const parsed = value ? new Date(`${value}T12:00:00`) : null;
-  const [viewYear, setViewYear] = useState(parsed?.getFullYear() ?? new Date().getFullYear());
-  const [viewMonth, setViewMonth] = useState(parsed?.getMonth() ?? new Date().getMonth());
-  const [pendingDay, setPendingDay] = useState<number | null>(parsed?.getDate() ?? null);
-
-  const openPicker = () => {
-    const base = value ? new Date(`${value}T12:00:00`) : new Date();
-    setViewYear(base.getFullYear());
-    setViewMonth(base.getMonth());
-    setPendingDay(value ? base.getDate() : null);
-    setOpen(true);
-  };
-
-  const pendingDate =
-    pendingDay !== null
-      ? new Date(viewYear, viewMonth, pendingDay, 12, 0, 0)
-      : null;
-
-  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-  const firstWeekday = new Date(viewYear, viewMonth, 1).getDay();
-
-  const prevMonth = () => {
-    if (viewMonth === 0) {
-      setViewMonth(11);
-      setViewYear((y) => y - 1);
-      return;
-    }
-    setViewMonth((m) => m - 1);
-  };
-
-  const nextMonth = () => {
-    if (viewMonth === 11) {
-      setViewMonth(0);
-      setViewYear((y) => y + 1);
-      return;
-    }
-    setViewMonth((m) => m + 1);
-  };
-
-  const confirmDate = () => {
-    if (pendingDay === null) return;
-    onChange(toBirthDateIso(viewYear, viewMonth, pendingDay));
-    setOpen(false);
-  };
-
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={openPicker}
-        className={`flex w-full items-center gap-3 rounded-2xl border bg-white px-4 py-3.5 text-left transition-colors ${
-          error ? "border-red-300" : "border-gray-200 focus-within:border-veloe-cyan"
-        }`}
-      >
-        <span className="shrink-0 text-veloe-navy/40">
-          <CalendarIcon />
-        </span>
-        <span
-          className={`w-full text-[15px] outline-none ${
-            value ? "text-veloe-navy" : "text-gray-400"
-          }`}
-        >
-          {value ? formatBirthDateDisplay(value) : "Data de nascimento"}
-        </span>
-      </button>
-      {error && <p className="mt-1.5 text-xs text-red-500">{error}</p>}
-
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Selecionar data de nascimento"
-            className="w-full max-w-sm overflow-hidden rounded-t-2xl bg-white shadow-xl sm:rounded-2xl"
-          >
-            <div className="bg-veloe-navy px-4 py-4 text-white">
-              <p className="text-sm font-medium opacity-90">{viewYear}</p>
-              <p className="text-xl font-bold">
-                {pendingDate
-                  ? pendingDate.toLocaleDateString("pt-BR", {
-                      weekday: "short",
-                      day: "numeric",
-                      month: "short",
-                    })
-                  : "Selecione a data"}
-              </p>
-            </div>
-
-            <div className="px-3 py-3">
-              <div className="mb-3 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={prevMonth}
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-veloe-navy/60 hover:bg-gray-100"
-                  aria-label="Mês anterior"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M15 18l-6-6 6-6"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
-                <p className="text-sm font-semibold capitalize text-veloe-navy">
-                  {MONTHS[viewMonth]} de {viewYear}
-                </p>
-                <button
-                  type="button"
-                  onClick={nextMonth}
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-veloe-navy/60 hover:bg-gray-100"
-                  aria-label="Próximo mês"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M9 18l6-6-6-6"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-7 gap-1 text-center">
-                {WEEKDAYS.map((day, index) => (
-                  <span
-                    key={`${day}-${index}`}
-                    className="py-1 text-[11px] font-semibold text-veloe-navy/45"
-                  >
-                    {day}
-                  </span>
-                ))}
-                {Array.from({ length: firstWeekday }).map((_, index) => (
-                  <span key={`empty-${index}`} />
-                ))}
-                {Array.from({ length: daysInMonth }).map((_, index) => {
-                  const day = index + 1;
-                  const selected = pendingDay === day;
-                  return (
-                    <button
-                      key={day}
-                      type="button"
-                      onClick={() => setPendingDay(day)}
-                      className={`mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm font-medium transition-colors ${
-                        selected
-                          ? "bg-veloe-navy text-white"
-                          : "text-veloe-navy hover:bg-veloe-cyan/10"
-                      }`}
-                    >
-                      {day}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="flex flex-row flex-nowrap items-center justify-end gap-0 border-t border-gray-100 px-1 py-1">
-              <button
-                type="button"
-                onClick={confirmDate}
-                disabled={pendingDay === null}
-                className="px-2 py-1 text-[13px] font-semibold text-veloe-navy disabled:opacity-40"
-              >
-                Definir
-              </button>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="px-2 py-1 text-[13px] font-semibold text-veloe-navy"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onChange("");
-                  setPendingDay(null);
-                  setOpen(false);
-                }}
-                className="px-2 py-1 text-[13px] font-semibold text-veloe-navy"
-              >
-                Limpar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function StepPersonalData({ onNext }: { onNext: () => void }) {
   const { formData, updateFormData } = useRegistration();
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -297,9 +65,6 @@ export default function StepPersonalData({ onNext }: { onNext: () => void }) {
     }
     if (touched.cpf && !validateCPF(formData.cpf)) {
       e.cpf = "CPF inválido";
-    }
-    if (touched.birthDate && !validateBirthDate(formData.birthDate)) {
-      e.birthDate = "Data inválida (mínimo 18 anos)";
     }
     if (touched.email && !validateEmail(formData.email)) {
       e.email = "E-mail inválido";
@@ -321,7 +86,6 @@ export default function StepPersonalData({ onNext }: { onNext: () => void }) {
     setTouched({
       fullName: true,
       cpf: true,
-      birthDate: true,
       email: true,
       phone: true,
       deviceType: true,
@@ -355,11 +119,6 @@ export default function StepPersonalData({ onNext }: { onNext: () => void }) {
           onChange={(v) => updateFormData({ cpf: formatCPF(v) })}
           error={errors.cpf}
           maxLength={14}
-        />
-        <BirthDateField
-          value={formData.birthDate}
-          onChange={(v) => updateFormData({ birthDate: v })}
-          error={errors.birthDate}
         />
         <FormField
           icon={<EmailIcon />}
@@ -450,15 +209,6 @@ function DocumentIcon() {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
       <rect x="5" y="3" width="14" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" />
       <path d="M9 8h6M9 12h6M9 16h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-      <rect x="4" y="5" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M4 10h16M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }

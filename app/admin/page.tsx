@@ -263,10 +263,6 @@ export default function AdminPage() {
             <dl className="mt-4 space-y-3 text-sm">
               <DetailRow label="Nome" value={selected.fullName} />
               <DetailRow label="CPF" value={selected.cpf} />
-              <DetailRow
-                label="Data de nascimento"
-                value={new Date(selected.birthDate + "T12:00:00").toLocaleDateString("pt-BR")}
-              />
               <DetailRow label="E-mail" value={selected.email} />
               <DetailRow label="Telefone" value={selected.phone} />
               <DetailRow

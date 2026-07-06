@@ -92,7 +92,6 @@ export function isBirthDateFilled(date: string): boolean {
 export function isPersonalDataFilled(data: {
   fullName: string;
   cpf: string;
-  birthDate: string;
   email: string;
   phone: string;
   deviceType: string;
@@ -100,7 +99,6 @@ export function isPersonalDataFilled(data: {
   return (
     data.fullName.trim().length > 0 &&
     data.cpf.trim().length > 0 &&
-    data.birthDate.trim().length > 0 &&
     data.email.trim().length > 0 &&
     data.phone.trim().length > 0 &&
     (data.deviceType === "iphone" || data.deviceType === "android")
