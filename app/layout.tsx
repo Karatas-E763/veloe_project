@@ -12,6 +12,9 @@ export const metadata: Metadata = {
   title: "Veloe - Até 2 TAGs gratuitas para você!",
   description:
     "Clientes dos bancos parceiros têm até 2 TAGs Veloe sem custo. Sem mensalidade, sem taxa de adesão.",
+  icons: {
+    icon: "/images/favicon.png",
+  },
 };
 
 export default function RootLayout({

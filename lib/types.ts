@@ -11,7 +11,8 @@ export type PartnerBank =
   | "Itaú"
   | "Santander"
   | "C6 Bank"
-  | "Sicredi";
+  | "Sicredi"
+  | "Banco do Brasil";
 
 export interface Registration {
   id: string;

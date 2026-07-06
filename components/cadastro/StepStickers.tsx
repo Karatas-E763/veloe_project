@@ -10,6 +10,7 @@ const banks: { name: PartnerBank; logo: string }[] = [
   { name: "Santander", logo: "/images/santander.png" },
   { name: "C6 Bank", logo: "/images/c6bank.png" },
   { name: "Sicredi", logo: "/images/sicredi.png" },
+  { name: "Banco do Brasil", logo: "/images/bb.png" },
 ];
 
 export default function StepStickers({ onNext }: { onNext: () => void }) {
