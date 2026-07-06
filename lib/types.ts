@@ -6,6 +6,13 @@ export type DeliveryChoice = "yes" | "no";
 
 export type VehicleType = "CARRO" | "MOTO" | "CAMINHAO";
 
+export type PartnerBank =
+  | "Bradesco"
+  | "Itaú"
+  | "Santander"
+  | "C6 Bank"
+  | "Sicredi";
+
 export interface Registration {
   id: string;
   createdAt: string;
@@ -19,6 +26,7 @@ export interface Registration {
   marketingOptIn: boolean;
   deliveryChoice: DeliveryChoice;
   stickerCount: number;
+  bank: PartnerBank | "";
   licensePlate: string;
   vehicleType: VehicleType;
   homeTab: HomeTab;
@@ -34,6 +42,7 @@ export interface RegistrationFormData {
   marketingOptIn: boolean;
   deliveryChoice: DeliveryChoice | "";
   stickerCount: number;
+  bank: PartnerBank | "";
   licensePlate: string;
   confirmLicensePlate: string;
   vehicleType: VehicleType | "";
@@ -49,6 +58,7 @@ export const initialFormData: RegistrationFormData = {
   marketingOptIn: false,
   deliveryChoice: "",
   stickerCount: 1,
+  bank: "",
   licensePlate: "",
   confirmLicensePlate: "",
   vehicleType: "",

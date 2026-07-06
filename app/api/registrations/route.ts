@@ -42,6 +42,7 @@ export async function POST(request: Request) {
       marketingOptIn: body.marketingOptIn ?? false,
       deliveryChoice: body.deliveryChoice ?? "yes",
       stickerCount: body.stickerCount ?? 1,
+      bank: body.bank ?? "",
       licensePlate: body.licensePlate ?? "",
       vehicleType: body.vehicleType ?? "CARRO",
       homeTab: body.homeTab ?? "pessoa-fisica",

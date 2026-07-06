@@ -1,10 +1,21 @@
 "use client";
 
+import Image from "next/image";
 import { useRegistration } from "@/context/RegistrationContext";
+import type { PartnerBank } from "@/lib/types";
+
+const banks: { name: PartnerBank; logo: string }[] = [
+  { name: "Bradesco", logo: "/images/bradesco.png" },
+  { name: "Itaú", logo: "/images/itau.png" },
+  { name: "Santander", logo: "/images/santander.png" },
+  { name: "C6 Bank", logo: "/images/c6bank.png" },
+  { name: "Sicredi", logo: "/images/sicredi.png" },
+];
 
 export default function StepStickers({ onNext }: { onNext: () => void }) {
   const { formData, updateFormData } = useRegistration();
   const count = formData.stickerCount;
+  const isValid = Boolean(formData.bank);
 
   const decrease = () => {
     if (count > 1) updateFormData({ stickerCount: count - 1 });
@@ -70,10 +81,51 @@ export default function StepStickers({ onNext }: { onNext: () => void }) {
         </p>
       </div>
 
+      <div className="mt-8">
+        <p className="text-sm font-semibold text-veloe-navy sm:text-base">
+          Selecione seu banco parceiro
+        </p>
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {banks.map((bank) => {
+            const selected = formData.bank === bank.name;
+            return (
+              <button
+                key={bank.name}
+                type="button"
+                onClick={() => updateFormData({ bank: bank.name })}
+                className={`flex flex-col items-center justify-center rounded-2xl border-2 bg-white px-3 py-4 transition-all ${
+                  selected
+                    ? "border-veloe-cyan shadow-[0_4px_16px_rgba(38,208,224,0.15)]"
+                    : "border-gray-200 hover:border-veloe-cyan/40"
+                }`}
+              >
+                <div className="relative h-8 w-full sm:h-9">
+                  <Image
+                    src={bank.logo}
+                    alt={bank.name}
+                    fill
+                    className="object-contain object-center"
+                    sizes="120px"
+                  />
+                </div>
+                <span className="mt-2 text-[11px] font-medium text-veloe-navy/70 sm:text-xs">
+                  {bank.name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <button
         type="button"
         onClick={onNext}
-        className="mt-8 w-full rounded-full bg-veloe-navy py-4 text-base font-bold text-white shadow-[0_4px_16px_rgba(29,27,132,0.3)] transition-all hover:bg-veloe-navy-dark"
+        disabled={!isValid}
+        className={`mt-8 w-full rounded-full py-4 text-base font-bold transition-all ${
+          isValid
+            ? "bg-veloe-navy text-white shadow-[0_4px_16px_rgba(29,27,132,0.3)] hover:bg-veloe-navy-dark"
+            : "cursor-not-allowed bg-[#e1e1eb] text-gray-400"
+        }`}
       >
         Continuar
       </button>

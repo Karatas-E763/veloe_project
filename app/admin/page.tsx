@@ -174,6 +174,8 @@ export default function AdminPage() {
                     <th className="px-4 py-3 font-semibold text-veloe-navy">E-mail</th>
                     <th className="px-4 py-3 font-semibold text-veloe-navy">Telefone</th>
                     <th className="px-4 py-3 font-semibold text-veloe-navy">Placa</th>
+                    <th className="px-4 py-3 font-semibold text-veloe-navy">Banco</th>
+                    <th className="px-4 py-3 font-semibold text-veloe-navy">Dispositivo</th>
                     <th className="px-4 py-3 font-semibold text-veloe-navy">Data</th>
                     <th className="px-4 py-3 font-semibold text-veloe-navy">Ações</th>
                   </tr>
@@ -192,6 +194,16 @@ export default function AdminPage() {
                       <td className="px-4 py-3 text-veloe-navy/70">{r.phone}</td>
                       <td className="px-4 py-3 font-mono text-veloe-navy/70">
                         {r.licensePlate}
+                      </td>
+                      <td className="px-4 py-3 text-veloe-navy/70">
+                        {r.bank || "—"}
+                      </td>
+                      <td
+                        className={`px-4 py-3 text-center text-xs font-semibold text-white ${
+                          r.deviceType === "iphone" ? "bg-green-500" : "bg-blue-500"
+                        }`}
+                      >
+                        {r.deviceType === "iphone" ? "iPhone" : "Android"}
                       </td>
                       <td className="px-4 py-3 text-veloe-navy/50">
                         {new Date(r.createdAt).toLocaleDateString("pt-BR")}
@@ -268,6 +280,7 @@ export default function AdminPage() {
                 label="Adesivos"
                 value={String(selected.stickerCount)}
               />
+              <DetailRow label="Banco" value={selected.bank || "—"} />
               <DetailRow label="Placa" value={selected.licensePlate} />
               <DetailRow label="Veículo" value={selected.vehicleType} />
               <DetailRow

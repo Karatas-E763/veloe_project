@@ -26,6 +26,7 @@ async function saveToArchive(
     marketingOptIn: formData.marketingOptIn,
     deliveryChoice: formData.deliveryChoice as Registration["deliveryChoice"],
     stickerCount: formData.stickerCount,
+    bank: formData.bank as Registration["bank"],
     licensePlate: formData.licensePlate,
     vehicleType: formData.vehicleType as Registration["vehicleType"],
     homeTab,
