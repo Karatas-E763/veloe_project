@@ -6,6 +6,7 @@ import PartnerBanksSection from "@/components/PartnerBanksSection";
 import BenefitsSection from "@/components/BenefitsSection";
 import HowItWorksSection from "@/components/HowItWorksSection";
 import FooterCTASection from "@/components/FooterCTASection";
+import SiteFooter from "@/components/SiteFooter";
 import { HomeTabProvider } from "@/context/HomeTabContext";
 
 export default function Home() {
@@ -18,6 +19,7 @@ export default function Home() {
         <BenefitsSection />
         <HowItWorksSection />
         <FooterCTASection />
+        <SiteFooter />
       </main>
     </HomeTabProvider>
   );
