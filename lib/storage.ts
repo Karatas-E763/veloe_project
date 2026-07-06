@@ -32,7 +32,9 @@ async function readFromBlob(): Promise<Registration[]> {
   const blob = blobs.find((item) => item.pathname === BLOB_PATH);
   if (!blob) return [];
 
-  const response = await fetch(blob.url, { cache: "no-store" });
+  const response = await fetch(`${blob.url}?v=${Date.now()}`, {
+    cache: "no-store",
+  });
   if (!response.ok) return [];
 
   const parsed = (await response.json()) as unknown;

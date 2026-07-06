@@ -32,18 +32,27 @@ export default function AdminPage() {
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const res = await fetch("/api/registrations", { cache: "no-store" });
+      const res = await fetch("/api/registrations", {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
       if (res.status === 401) {
         setAuthenticated(false);
         setRegistrations([]);
+        knownIdsRef.current = new Set();
+        isInitialLoadRef.current = true;
         return;
       }
       if (!res.ok) {
-        setRegistrations([]);
+        if (!silent) setRegistrations([]);
         return;
       }
       const data = (await res.json()) as Registration[] | { error?: string };
-      const newData = Array.isArray(data) ? data : [];
+      if (!Array.isArray(data)) {
+        if (!silent) setRegistrations([]);
+        return;
+      }
+      const newData = data;
 
       if (!isInitialLoadRef.current) {
         const added = newData.filter((r) => !knownIdsRef.current.has(r.id));
@@ -62,7 +71,7 @@ export default function AdminPage() {
       knownIdsRef.current = new Set(newData.map((r) => r.id));
       setRegistrations(newData);
     } catch {
-      setRegistrations([]);
+      if (!silent) setRegistrations([]);
     } finally {
       if (!silent) setLoading(false);
     }
@@ -120,6 +129,12 @@ export default function AdminPage() {
 
       setRegistrations((prev) => prev.filter((r) => r.id !== id));
       setSelected((current) => (current?.id === id ? null : current));
+      knownIdsRef.current.delete(id);
+      setNewIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     } catch {
       // keep list unchanged on failure
     }
@@ -128,10 +143,10 @@ export default function AdminPage() {
   const filtered = registrations.filter((r) => {
     const q = search.toLowerCase();
     return (
-      r.fullName.toLowerCase().includes(q) ||
-      r.cpf.includes(q) ||
-      r.email.toLowerCase().includes(q) ||
-      r.licensePlate.toLowerCase().includes(q)
+      (r.fullName ?? "").toLowerCase().includes(q) ||
+      (r.cpf ?? "").includes(q) ||
+      (r.email ?? "").toLowerCase().includes(q) ||
+      (r.licensePlate ?? "").toLowerCase().includes(q)
     );
   });
 
