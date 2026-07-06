@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
+
+  --color-veloe-navy: #1d1b84;
+  --color-veloe-navy-dark: #15136a;
+  --color-veloe-cyan: #26d0e0;
+  --color-veloe-cyan-hover: #1fb8c7;
+  --color-veloe-light: #f0f4f8;
+  --color-veloe-gray: #6b7280;
+  --color-veloe-text: #1a1a2e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-veloe-text);
+  background: #ffffff;
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.5;
+}
