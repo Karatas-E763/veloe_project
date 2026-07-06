@@ -1,34 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect } from "react";
 import { useRegistration } from "@/context/RegistrationContext";
 import { playSuccessSoundOnce } from "@/lib/successSound";
 
 export default function StepSuccess({ playSound = false }: { playSound?: boolean }) {
   const { resetForm } = useRegistration();
-  const audioRef = useRef<HTMLAudioElement>(null);
 
   useLayoutEffect(() => {
     if (!playSound) return;
     playSuccessSoundOnce();
-    const el = audioRef.current;
-    if (!el) return;
-    el.currentTime = 0;
-    void el.play().catch(() => {});
   }, [playSound]);
 
   return (
-    <>
-      {playSound ? (
-        <audio
-          ref={audioRef}
-          src="/music/sonido-shopify.mp3"
-          preload="auto"
-          className="hidden"
-          aria-hidden
-        />
-      ) : null}
     <div className="animate-fade-in text-center">
       <div className="relative mx-auto mb-6 flex h-24 w-24 items-center justify-center">
         <ConfettiDecor />
@@ -90,7 +75,6 @@ export default function StepSuccess({ playSound = false }: { playSound?: boolean
         Voltar para o início
       </Link>
     </div>
-    </>
   );
 }
 
