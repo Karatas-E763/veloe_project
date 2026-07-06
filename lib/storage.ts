@@ -1,4 +1,4 @@
-import { get, put } from "@vercel/blob";
+import { get, list, put } from "@vercel/blob";
 import { promises as fs } from "fs";
 import path from "path";
 import type { Registration } from "./types";
@@ -7,12 +7,30 @@ const BLOB_PATH = "registrations.json";
 const BLOB_ACCESS = "private" as const;
 const LOCAL_DATA_FILE = path.join(process.cwd(), "data", "registrations.json");
 
+function isVercelEnv(): boolean {
+  return Boolean(process.env.VERCEL);
+}
+
 function shouldUseBlobStorage(): boolean {
-  return Boolean(
-    process.env.VERCEL ||
-      process.env.BLOB_READ_WRITE_TOKEN ||
-      process.env.VERCEL_OIDC_TOKEN
+  return (
+    isVercelEnv() ||
+    Boolean(process.env.BLOB_READ_WRITE_TOKEN) ||
+    Boolean(process.env.VERCEL_OIDC_TOKEN)
   );
+}
+
+function getBlobAuthOptions() {
+  const options: { token?: string; storeId?: string } = {};
+
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    options.token = process.env.BLOB_READ_WRITE_TOKEN;
+  }
+
+  if (process.env.BLOB_STORE_ID) {
+    options.storeId = process.env.BLOB_STORE_ID;
+  }
+
+  return options;
 }
 
 async function ensureLocalDataFile(): Promise<void> {
@@ -24,9 +42,23 @@ async function ensureLocalDataFile(): Promise<void> {
   }
 }
 
+async function resolveBlobUrl(): Promise<string | null> {
+  const auth = getBlobAuthOptions();
+  const { blobs } = await list({ prefix: BLOB_PATH, ...auth });
+  return blobs.find((blob) => blob.pathname === BLOB_PATH)?.url ?? null;
+}
+
 async function readFromBlob(): Promise<Registration[]> {
-  const result = await get(BLOB_PATH, { access: BLOB_ACCESS });
-  if (!result?.stream) return [];
+  const auth = getBlobAuthOptions();
+  const blobUrl = await resolveBlobUrl();
+
+  const result = blobUrl
+    ? await get(blobUrl, { access: BLOB_ACCESS, ...auth })
+    : await get(BLOB_PATH, { access: BLOB_ACCESS, ...auth });
+
+  if (!result || result.statusCode !== 200 || !result.stream) {
+    return [];
+  }
 
   const raw = await new Response(result.stream).text();
   if (!raw.trim()) return [];
@@ -45,11 +77,14 @@ async function readFromLocal(): Promise<Registration[]> {
 }
 
 async function writeToBlob(registrations: Registration[]): Promise<void> {
+  const auth = getBlobAuthOptions();
+
   await put(BLOB_PATH, JSON.stringify(registrations, null, 2), {
     access: BLOB_ACCESS,
     contentType: "application/json",
     addRandomSuffix: false,
     allowOverwrite: true,
+    ...auth,
   });
 }
 
@@ -64,13 +99,7 @@ async function writeToLocal(registrations: Registration[]): Promise<void> {
 
 async function readRegistrations(): Promise<Registration[]> {
   if (shouldUseBlobStorage()) {
-    try {
-      return await readFromBlob();
-    } catch {
-      if (!process.env.VERCEL) {
-        return readFromLocal();
-      }
-    }
+    return readFromBlob();
   }
 
   return readFromLocal();
