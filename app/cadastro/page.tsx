@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { flushSync } from "react-dom";
 import RegistrationLayout from "@/components/cadastro/RegistrationLayout";
 import StepDelivery from "@/components/cadastro/StepDelivery";

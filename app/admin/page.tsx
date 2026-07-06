@@ -4,12 +4,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { Registration } from "@/lib/types";
 import AdminLogin from "@/components/admin/AdminLogin";
 import {
-  playNotificationSound,
   unlockSuccessSound,
   warmSuccessSound,
+  playAdminNotificationSound,
 } from "@/lib/successSound";
-
-const POLL_INTERVAL_MS = 4000;
 
 export default function AdminPage() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
@@ -17,10 +15,9 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Registration | null>(null);
   const [search, setSearch] = useState("");
-  const [newSubscriberIds, setNewSubscriberIds] = useState<Set<string>>(
-    () => new Set()
-  );
-  const knownIdsRef = useRef<Set<string> | null>(null);
+  const [newIds, setNewIds] = useState<Set<string>>(() => new Set());
+  const knownIdsRef = useRef<Set<string>>(new Set());
+  const isInitialLoadRef = useRef(true);
 
   const checkSession = useCallback(async () => {
     try {
@@ -32,67 +29,44 @@ export default function AdminPage() {
     }
   }, []);
 
-  const fetchRegistrations = useCallback(async (): Promise<
-    Registration[] | null
-  > => {
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch("/api/registrations", { cache: "no-store" });
       if (res.status === 401) {
         setAuthenticated(false);
         setRegistrations([]);
-        return null;
-      }
-      if (!res.ok) return null;
-
-      const data = (await res.json()) as Registration[] | { error?: string };
-      return Array.isArray(data) ? data : [];
-    } catch {
-      return null;
-    }
-  }, []);
-
-  const applyRegistrations = useCallback(
-    (data: Registration[], isInitial: boolean) => {
-      if (isInitial || knownIdsRef.current === null) {
-        knownIdsRef.current = new Set(data.map((r) => r.id));
-        setRegistrations(data);
         return;
       }
+      if (!res.ok) {
+        setRegistrations([]);
+        return;
+      }
+      const data = (await res.json()) as Registration[] | { error?: string };
+      const newData = Array.isArray(data) ? data : [];
 
-      const freshIds: string[] = [];
-      const known = knownIdsRef.current;
-
-      for (const registration of data) {
-        if (!known.has(registration.id)) {
-          freshIds.push(registration.id);
-          known.add(registration.id);
+      if (!isInitialLoadRef.current) {
+        const added = newData.filter((r) => !knownIdsRef.current.has(r.id));
+        if (added.length > 0) {
+          setNewIds((prev) => {
+            const next = new Set(prev);
+            added.forEach((r) => next.add(r.id));
+            return next;
+          });
+          playAdminNotificationSound();
         }
+      } else {
+        isInitialLoadRef.current = false;
       }
 
-      setRegistrations(data);
-
-      if (freshIds.length > 0) {
-        setNewSubscriberIds((prev) => {
-          const next = new Set(prev);
-          freshIds.forEach((id) => next.add(id));
-          return next;
-        });
-        playNotificationSound();
-      }
-    },
-    []
-  );
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await fetchRegistrations();
-      if (data === null) return;
-      applyRegistrations(data, true);
+      knownIdsRef.current = new Set(newData.map((r) => r.id));
+      setRegistrations(newData);
+    } catch {
+      setRegistrations([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  }, [applyRegistrations, fetchRegistrations]);
+  }, []);
 
   useEffect(() => {
     checkSession();
@@ -107,31 +81,25 @@ export default function AdminPage() {
   useEffect(() => {
     if (!authenticated) return;
 
-    warmSuccessSound();
-    unlockSuccessSound();
-
-    const unlock = () => {
+    const warm = () => {
       unlockSuccessSound();
-      window.removeEventListener("pointerdown", unlock);
+      warmSuccessSound();
     };
-    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("pointerdown", warm, { once: true });
 
-    const poll = async () => {
-      const data = await fetchRegistrations();
-      if (data !== null) {
-        applyRegistrations(data, false);
-      }
-    };
+    const interval = setInterval(() => {
+      void loadData(true);
+    }, 5000);
 
-    const intervalId = window.setInterval(poll, POLL_INTERVAL_MS);
     return () => {
-      window.clearInterval(intervalId);
-      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("pointerdown", warm);
+      clearInterval(interval);
     };
-  }, [authenticated, applyRegistrations, fetchRegistrations]);
+  }, [authenticated, loadData]);
 
   const handleLoginSuccess = () => {
     unlockSuccessSound();
+    warmSuccessSound();
     setAuthenticated(true);
   };
 
@@ -140,18 +108,9 @@ export default function AdminPage() {
     setAuthenticated(false);
     setRegistrations([]);
     setSelected(null);
-    setNewSubscriberIds(new Set());
-    knownIdsRef.current = null;
-  };
-
-  const handleView = (registration: Registration) => {
-    setSelected(registration);
-    setNewSubscriberIds((prev) => {
-      if (!prev.has(registration.id)) return prev;
-      const next = new Set(prev);
-      next.delete(registration.id);
-      return next;
-    });
+    setNewIds(new Set());
+    knownIdsRef.current = new Set();
+    isInitialLoadRef.current = true;
   };
 
   const handleDelete = async (id: string) => {
@@ -161,12 +120,6 @@ export default function AdminPage() {
 
       setRegistrations((prev) => prev.filter((r) => r.id !== id));
       setSelected((current) => (current?.id === id ? null : current));
-      setNewSubscriberIds((prev) => {
-        if (!prev.has(id)) return prev;
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
     } catch {
       // keep list unchanged on failure
     }
@@ -285,28 +238,25 @@ export default function AdminPage() {
                   {filtered.map((r) => (
                     <tr
                       key={r.id}
-                      className={`border-b border-gray-50 transition-colors hover:bg-veloe-cyan/5 ${
-                        newSubscriberIds.has(r.id) ? "bg-green-50/60" : ""
-                      }`}
+                      className="border-b border-gray-50 transition-colors hover:bg-veloe-cyan/5"
                     >
                       <td className="px-4 py-3 font-medium text-veloe-navy">
                         <span className="flex items-center gap-2">
-                          {newSubscriberIds.has(r.id) && (
+                          {newIds.has(r.id) && (
                             <span
-                              className="relative flex h-5 w-5 shrink-0 items-center justify-center"
+                              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-500 text-white shadow-[0_0_0_2px_rgba(34,197,94,0.25)]"
                               title="Novo cadastro"
+                              aria-label="Novo cadastro"
                             >
-                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-                              <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-green-500 text-white">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                                  <path
-                                    d="M12 3a6 6 0 00-6 6v2.1l-1.4 1.4a1 1 0 00-.3.7V18a2 2 0 002 2h11a2 2 0 002-2v-4.8a1 1 0 00-.3-.7L18 11.1V9a6 6 0 00-6-6z"
-                                    stroke="currentColor"
-                                    strokeWidth="1.8"
-                                    strokeLinejoin="round"
-                                  />
-                                </svg>
-                              </span>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                                <path
+                                  d="M12 2a7 7 0 00-7 7v3.1l-1.4 2.8A1 1 0 005.6 16h12.8a1 1 0 00.9-1.5L18 12.1V9a7 7 0 00-7-7zM10 20a2 2 0 004 0"
+                                  stroke="currentColor"
+                                  strokeWidth="1.8"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
                             </span>
                           )}
                           {r.fullName}
@@ -334,7 +284,14 @@ export default function AdminPage() {
                       <td className="px-4 py-3">
                         <button
                           type="button"
-                          onClick={() => handleView(r)}
+                          onClick={() => {
+                            setSelected(r);
+                            setNewIds((prev) => {
+                              const next = new Set(prev);
+                              next.delete(r.id);
+                              return next;
+                            });
+                          }}
                           className="mr-2 rounded-lg bg-veloe-navy/10 px-3 py-1.5 text-xs font-semibold text-veloe-navy transition-colors hover:bg-veloe-navy/20"
                         >
                           Ver

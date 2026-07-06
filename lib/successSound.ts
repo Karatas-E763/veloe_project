@@ -156,64 +156,6 @@ async function attemptPlay(): Promise<boolean> {
   return tryDomAudioPlay();
 }
 
-/** Play notification sound (admin: new subscriber). */
-export function playNotificationSound(): void {
-  if (typeof window === "undefined") return;
-
-  void (async () => {
-    await loadBuffer();
-    if (await tryWebAudioPlayDirect()) return;
-    await tryDomAudioPlayDirect();
-  })();
-}
-
-async function tryWebAudioPlayDirect(): Promise<boolean> {
-  const buffer = await loadBuffer();
-  const ctx = getContext();
-  if (!buffer || !ctx) return false;
-
-  if (ctx.state === "suspended") {
-    try {
-      await ctx.resume();
-    } catch {
-      return false;
-    }
-  }
-
-  try {
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(ctx.destination);
-    source.start(0);
-    stopMutedKeepAlive();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function tryDomAudioPlayDirect(): Promise<boolean> {
-  const el = getDomAudio();
-  el.loop = false;
-  el.pause();
-  el.muted = false;
-  el.volume = 1;
-  el.currentTime = 0;
-
-  try {
-    await el.play();
-    return true;
-  } catch {
-    el.load();
-    try {
-      await el.play();
-      return true;
-    } catch {
-      return false;
-    }
-  }
-}
-
 /** Play once when the success screen mounts. Retries handle async save delays. */
 export function playSuccessSoundOnce(): void {
   if (typeof window === "undefined" || !armed) return;
@@ -231,6 +173,21 @@ export function playSuccessSoundOnce(): void {
         return;
       }
 
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  })();
+}
+
+/** Play when a new subscriber appears in the admin panel. */
+export function playAdminNotificationSound(): void {
+  if (typeof window === "undefined") return;
+
+  void (async () => {
+    await loadBuffer();
+
+    for (let attempt = 0; attempt < 12; attempt++) {
+      if (await tryWebAudioPlay()) return;
+      if (await tryDomAudioPlay()) return;
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
   })();
