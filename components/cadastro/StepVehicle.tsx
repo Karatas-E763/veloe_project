@@ -14,13 +14,7 @@ const vehicleTypes: { value: VehicleType; label: string }[] = [
   { value: "CAMINHAO", label: "CAMINHÃO" },
 ];
 
-export default function StepVehicle({
-  onNext,
-  onSkip,
-}: {
-  onNext: () => void;
-  onSkip: () => void;
-}) {
+export default function StepVehicle({ onNext }: { onNext: () => void }) {
   const { formData, updateFormData } = useRegistration();
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -165,14 +159,6 @@ export default function StepVehicle({
         }`}
       >
         Continuar
-      </button>
-
-      <button
-        type="button"
-        onClick={onSkip}
-        className="mt-4 w-full py-2 text-sm font-semibold text-veloe-navy/60 transition-colors hover:text-veloe-navy"
-      >
-        Pular
       </button>
     </div>
   );

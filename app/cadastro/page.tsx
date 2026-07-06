@@ -108,9 +108,7 @@ export default function CadastroPage() {
     alert("Erro ao salvar cadastro. Verifique se o Blob store está conectado no Vercel.");
   };
 
-  const handleVehicleNext = () => saveAndFinish(false);
-
-  const handleVehicleSkip = () => {
+  const handleVehicleNext = () => {
     unlockSuccessSound();
     saveAndFinish(true);
   };
@@ -126,9 +124,7 @@ export default function CadastroPage() {
       return <StepStickers onNext={handleStickersNext} />;
     }
     if (step === 4 && subStep === 1) {
-      return (
-        <StepVehicle onNext={handleVehicleNext} onSkip={handleVehicleSkip} />
-      );
+      return <StepVehicle onNext={handleVehicleNext} />;
     }
     if (step === 4 && subStep === 2) {
       return <StepSuccess playSound={playSuccessSound} />;
