@@ -13,8 +13,6 @@ const banks: { name: PartnerBank; logo: string }[] = [
   { name: "Banco do Brasil", logo: "/images/bb.png" },
 ];
 
-const MAX_STICKERS = 100;
-
 export default function StepStickers({ onNext }: { onNext: () => void }) {
   const { formData, updateFormData } = useRegistration();
   const count = formData.stickerCount;
@@ -25,10 +23,10 @@ export default function StepStickers({ onNext }: { onNext: () => void }) {
   };
 
   const increase = () => {
-    if (count < MAX_STICKERS) updateFormData({ stickerCount: count + 1 });
+    if (count < 2) updateFormData({ stickerCount: count + 1 });
   };
 
-  const label = count === 1 ? "1 Adesivo" : `${count} Adesivos`;
+  const label = count === 1 ? "1 Adesivo" : "2 Adesivos";
 
   return (
     <div className="animate-fade-in">
@@ -36,7 +34,7 @@ export default function StepStickers({ onNext }: { onNext: () => void }) {
         Quantos adesivos você deseja?
       </h1>
       <p className="mt-2 text-sm leading-relaxed text-veloe-navy/70 sm:text-[15px]">
-        Você pode solicitar até 100 adesivos gratuitos.
+        Você pode solicitar até 2 adesivos gratuitos.
       </p>
 
       <div className="mt-8 flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-6 sm:px-8">
@@ -63,9 +61,9 @@ export default function StepStickers({ onNext }: { onNext: () => void }) {
         <button
           type="button"
           onClick={increase}
-          disabled={count >= MAX_STICKERS}
+          disabled={count >= 2}
           className={`flex h-11 w-11 items-center justify-center rounded-full transition-all ${
-            count >= MAX_STICKERS
+            count >= 2
               ? "cursor-not-allowed bg-veloe-navy/30 text-white/50"
               : "bg-veloe-navy text-white hover:bg-veloe-navy-dark"
           }`}
@@ -80,7 +78,7 @@ export default function StepStickers({ onNext }: { onNext: () => void }) {
       <div className="mt-4 flex items-center gap-2 rounded-xl bg-[#eef0f8] px-4 py-3">
         <InfoIcon />
         <p className="text-sm text-veloe-navy/70">
-          Você pode solicitar até 100 adesivos.
+          Você pode solicitar até 2 adesivos.
         </p>
       </div>
 
