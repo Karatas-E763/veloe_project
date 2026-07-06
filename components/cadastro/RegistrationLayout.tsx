@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { VeloeLogoCyan } from "@/components/shared/VeloeLogo";
 import ProgressStepper from "./ProgressStepper";
 import SecurityFooter from "./SecurityFooter";
@@ -37,7 +38,9 @@ export default function RegistrationLayout({
               </svg>
             </button>
           )}
-          <VeloeLogoCyan className="h-7" />
+          <Link href="/" aria-label="Voltar para o início">
+            <VeloeLogoCyan className="h-7" />
+          </Link>
         </div>
       </header>
 
