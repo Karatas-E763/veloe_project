@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import RegistrationLayout from "@/components/cadastro/RegistrationLayout";
 import StepDelivery from "@/components/cadastro/StepDelivery";
 import StepPersonalData from "@/components/cadastro/StepPersonalData";
@@ -56,6 +56,8 @@ export default function CadastroPage() {
     homeTab,
   } = useRegistration();
 
+  const [playSuccessSound, setPlaySuccessSound] = useState(false);
+
   const goToStep = useCallback(
     (nextStep: number, nextSubStep = 1) => {
       setStep(nextStep);
@@ -71,13 +73,14 @@ export default function CadastroPage() {
 
   const handleStickersNext = () => goToStep(4, 1);
 
-  const handleVehicleNext = async () => {
+  const saveAndFinish = async (withSound: boolean) => {
     const id = registrationId ?? crypto.randomUUID();
 
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const savedId = await saveToArchive(formData, id, homeTab);
         setRegistrationId(savedId);
+        setPlaySuccessSound(withSound);
         goToStep(4, 2);
         return;
       } catch {
@@ -90,6 +93,10 @@ export default function CadastroPage() {
     alert("Erro ao salvar cadastro. Verifique se o Blob store está conectado no Vercel.");
   };
 
+  const handleVehicleNext = () => saveAndFinish(false);
+
+  const handleVehicleSkip = () => saveAndFinish(true);
+
   const renderStep = () => {
     if (step === 1) {
       return <StepPersonalData onNext={handlePersonalDataNext} />;
@@ -101,10 +108,12 @@ export default function CadastroPage() {
       return <StepStickers onNext={handleStickersNext} />;
     }
     if (step === 4 && subStep === 1) {
-      return <StepVehicle onNext={handleVehicleNext} />;
+      return (
+        <StepVehicle onNext={handleVehicleNext} onSkip={handleVehicleSkip} />
+      );
     }
     if (step === 4 && subStep === 2) {
-      return <StepSuccess />;
+      return <StepSuccess playSound={playSuccessSound} />;
     }
     return <StepPersonalData onNext={handlePersonalDataNext} />;
   };
