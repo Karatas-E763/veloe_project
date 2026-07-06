@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdminAuth } from "@/lib/admin-guard";
 import { getRegistrations, saveRegistration } from "@/lib/storage";
 import type { Registration } from "@/lib/types";
 
@@ -6,6 +7,9 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
+  const authError = await requireAdminAuth();
+  if (authError) return authError;
+
   try {
     const registrations = await getRegistrations();
     return NextResponse.json(registrations, {

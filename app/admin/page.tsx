@@ -2,17 +2,34 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { Registration } from "@/lib/types";
+import AdminLogin from "@/components/admin/AdminLogin";
 
 export default function AdminPage() {
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Registration | null>(null);
   const [search, setSearch] = useState("");
+
+  const checkSession = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/login", { cache: "no-store" });
+      const data = (await res.json()) as { authenticated?: boolean };
+      setAuthenticated(Boolean(data.authenticated));
+    } catch {
+      setAuthenticated(false);
+    }
+  }, []);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/registrations", { cache: "no-store" });
+      if (res.status === 401) {
+        setAuthenticated(false);
+        setRegistrations([]);
+        return;
+      }
       if (!res.ok) {
         setRegistrations([]);
         return;
@@ -27,8 +44,25 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    checkSession();
+  }, [checkSession]);
+
+  useEffect(() => {
+    if (authenticated) {
+      loadData();
+    }
+  }, [authenticated, loadData]);
+
+  const handleLoginSuccess = () => {
+    setAuthenticated(true);
+  };
+
+  const handleLogout = async () => {
+    await fetch("/api/admin/logout", { method: "POST" });
+    setAuthenticated(false);
+    setRegistrations([]);
+    setSelected(null);
+  };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Deseja excluir este cadastro?")) return;
@@ -47,6 +81,18 @@ export default function AdminPage() {
     );
   });
 
+  if (authenticated === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f5f7fa]">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-veloe-cyan border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <AdminLogin onSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <div className="min-h-screen bg-[#f5f7fa]">
       <header className="bg-veloe-navy px-6 py-5">
@@ -59,12 +105,21 @@ export default function AdminPage() {
               Gerencie os cadastros recebidos
             </p>
           </div>
-          <a
-            href="/"
-            className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-          >
-            Voltar ao site
-          </a>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+            >
+              Sair
+            </button>
+            <a
+              href="/"
+              className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+            >
+              Voltar ao site
+            </a>
+          </div>
         </div>
       </header>
 
