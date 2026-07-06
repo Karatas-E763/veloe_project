@@ -65,10 +65,15 @@ export default function AdminPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Deseja excluir este cadastro?")) return;
-    await fetch(`/api/registrations/${id}`, { method: "DELETE" });
-    setSelected(null);
-    loadData();
+    try {
+      const res = await fetch(`/api/registrations/${id}`, { method: "DELETE" });
+      if (!res.ok) return;
+
+      setRegistrations((prev) => prev.filter((r) => r.id !== id));
+      setSelected((current) => (current?.id === id ? null : current));
+    } catch {
+      // keep list unchanged on failure
+    }
   };
 
   const filtered = registrations.filter((r) => {
