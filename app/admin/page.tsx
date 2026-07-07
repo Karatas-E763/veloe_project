@@ -3,11 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Registration } from "@/lib/types";
 import AdminLogin from "@/components/admin/AdminLogin";
-import {
-  unlockSuccessSound,
-  warmSuccessSound,
-  playAdminNotificationSound,
-} from "@/lib/successSound";
 
 export default function AdminPage() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
@@ -17,8 +12,35 @@ export default function AdminPage() {
   const [search, setSearch] = useState("");
   const [newIds, setNewIds] = useState<Set<string>>(() => new Set());
   const knownIdsRef = useRef<Set<string>>(new Set());
-  const knownUpdatedAtRef = useRef<Map<string, string>>(new Map());
   const isInitialLoadRef = useRef(true);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const audioLockedRef = useRef(true);
+
+  const lockNotificationAudio = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
+    audio.setAttribute("disabled", "");
+    audioLockedRef.current = true;
+  }, []);
+
+  const playNotificationOnce = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio || !audioLockedRef.current) return;
+
+    audioLockedRef.current = false;
+    audio.removeAttribute("disabled");
+    audio.currentTime = 0;
+
+    void audio.play().catch(() => {
+      lockNotificationAudio();
+    });
+  }, [lockNotificationAudio]);
+
+  const handleNotificationEnded = useCallback(() => {
+    lockNotificationAudio();
+  }, [lockNotificationAudio]);
 
   const checkSession = useCallback(async () => {
     try {
@@ -41,7 +63,6 @@ export default function AdminPage() {
         setAuthenticated(false);
         setRegistrations([]);
         knownIdsRef.current = new Set();
-        knownUpdatedAtRef.current = new Map();
         isInitialLoadRef.current = true;
         return;
       }
@@ -58,36 +79,27 @@ export default function AdminPage() {
 
       if (!isInitialLoadRef.current) {
         const added = newData.filter((r) => !knownIdsRef.current.has(r.id));
-        const updated = newData.filter((r) => {
-          const previous = knownUpdatedAtRef.current.get(r.id);
-          return previous !== undefined && previous !== r.updatedAt;
-        });
 
-        if (added.length > 0 || updated.length > 0) {
-          if (added.length > 0) {
-            setNewIds((prev) => {
-              const next = new Set(prev);
-              added.forEach((r) => next.add(r.id));
-              return next;
-            });
-          }
-          playAdminNotificationSound();
+        if (added.length > 0) {
+          setNewIds((prev) => {
+            const next = new Set(prev);
+            added.forEach((r) => next.add(r.id));
+            return next;
+          });
+          playNotificationOnce();
         }
       } else {
         isInitialLoadRef.current = false;
       }
 
       knownIdsRef.current = new Set(newData.map((r) => r.id));
-      knownUpdatedAtRef.current = new Map(
-        newData.map((r) => [r.id, r.updatedAt])
-      );
       setRegistrations(newData);
     } catch {
       if (!silent) setRegistrations([]);
     } finally {
       if (!silent) setLoading(false);
     }
-  }, []);
+  }, [playNotificationOnce]);
 
   useEffect(() => {
     checkSession();
@@ -102,25 +114,14 @@ export default function AdminPage() {
   useEffect(() => {
     if (!authenticated) return;
 
-    const warm = () => {
-      unlockSuccessSound();
-      warmSuccessSound();
-    };
-    window.addEventListener("pointerdown", warm, { once: true });
-
     const interval = setInterval(() => {
       void loadData(true);
-    }, 5000);
+    }, 4000);
 
-    return () => {
-      window.removeEventListener("pointerdown", warm);
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, [authenticated, loadData]);
 
   const handleLoginSuccess = () => {
-    unlockSuccessSound();
-    warmSuccessSound();
     setAuthenticated(true);
   };
 
@@ -131,8 +132,8 @@ export default function AdminPage() {
     setSelected(null);
     setNewIds(new Set());
     knownIdsRef.current = new Set();
-    knownUpdatedAtRef.current = new Map();
     isInitialLoadRef.current = true;
+    lockNotificationAudio();
   };
 
   const handleDelete = async (id: string) => {
@@ -177,6 +178,20 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f7fa]">
+      <audio
+        ref={(node) => {
+          audioRef.current = node;
+          if (node) {
+            node.setAttribute("disabled", "");
+            audioLockedRef.current = true;
+          }
+        }}
+        src="/music/sonido-shopify.mp3"
+        preload="auto"
+        onEnded={handleNotificationEnded}
+        className="hidden"
+        aria-hidden
+      />
       <header className="bg-veloe-navy px-6 py-5">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div>
